@@ -1,0 +1,81 @@
+:root {
+  --wine: #4a1b2c;
+  --wine-deep: #2e0f1b;
+  --pink: #f4c9d4;
+  --pink-soft: #fceaf0;
+  --cream: #faf5f0;
+  --ink: #2b2320;
+  --muted: #8a7a72;
+  --border: #ebdfd6;
+  --coral: #c85c5c;
+  --sage: #7fa377;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+input,
+select,
+button {
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.field {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.field:focus {
+  outline: 2px solid var(--wine);
+  outline-offset: 1px;
+}
+
+.btn-primary {
+  background: var(--wine);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.pill {
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pill.on {
+  background: var(--wine);
+  border-color: var(--wine);
+  color: #fff;
+}

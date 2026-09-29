@@ -1,0 +1,123 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    // "Activo" = tiene un documento en /usuarios con activo == true.
+    // Cualquier persona autenticada que NO tenga ese documento (o esté desactivada)
+    // queda sin acceso a datos, aunque tenga una cuenta válida de Firebase Auth.
+    function isActive() {
+      return isSignedIn() && userDoc().data.activo == true;
+    }
+
+    function isAdmin() {
+      return isActive() && userDoc().data.rol == 'admin';
+    }
+
+    function onlyKeysChanged(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    function isShortString(v, maxLen) {
+      return v is string && v.size() > 0 && v.size() < maxLen;
+    }
+
+    function validStock(s) {
+      return s is number && s >= 0 && s < 1000000;
+    }
+
+    function validProducto(d) {
+      return d.keys().hasAll(['sku', 'nombre', 'tipo', 'color', 'talla', 'precioVenta', 'stock']) &&
+             isShortString(d.sku, 40) &&
+             isShortString(d.nombre, 80) &&
+             isShortString(d.tipo, 40) &&
+             isShortString(d.color, 40) &&
+             isShortString(d.talla, 10) &&
+             d.precioVenta is number && d.precioVenta >= 0 && d.precioVenta < 100000 &&
+             validStock(d.stock);
+    }
+
+    function validVenta(d) {
+      return isShortString(d.sku, 40) &&
+             isShortString(d.nombre, 80) &&
+             d.cantidad is number && d.cantidad > 0 && d.cantidad <= 1000 &&
+             d.precio is number && d.precio >= 0 && d.precio < 100000 &&
+             d.subtotal is number && d.subtotal >= 0 && d.subtotal < 1000000 &&
+             d.total is number && d.total >= 0 && d.total < 1000000 &&
+             (d.cliente is string && d.cliente.size() < 60) &&
+             isShortString(d.medioPago, 40) &&
+             isShortString(d.tipoEntrega, 40) &&
+             isShortString(d.estado, 40) &&
+             d.vendedorUid is string;
+    }
+
+    function validCompra(d) {
+      return isShortString(d.sku, 40) &&
+             isShortString(d.nombre, 80) &&
+             d.cantidad is number && d.cantidad > 0 && d.cantidad <= 10000 &&
+             d.precioCompra is number && d.precioCompra >= 0 && d.precioCompra < 100000 &&
+             d.subtotal is number && d.subtotal >= 0 && d.subtotal < 1000000 &&
+             d.usuarioUid is string;
+    }
+
+    // ---------- usuarios (directorio + rol) ----------
+    match /usuarios/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // ---------- config (catálogo configurable: tipos, etc.) ----------
+    match /config/{id} {
+      allow read: if isActive();
+      allow write: if isActive() &&
+                    request.resource.data.valores is list &&
+                    request.resource.data.valores.size() <= 50;
+    }
+
+    // ---------- productos ----------
+    match /productos/{id} {
+      allow read: if isActive();
+      allow create: if isActive() && validProducto(request.resource.data);
+      allow update: if isActive() && (
+        (isAdmin() && validProducto(request.resource.data)) ||
+        (onlyKeysChanged(['stock']) && validStock(request.resource.data.stock))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ---------- promociones (solo Admin las crea/edita) ----------
+    match /promociones/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    // ---------- compras ----------
+    match /compras/{id} {
+      allow read: if isActive();
+      allow create: if isActive() &&
+                     validCompra(request.resource.data) &&
+                     request.resource.data.usuarioUid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- ventas ----------
+    match /ventas/{id} {
+      allow read: if isActive();
+      allow create: if isActive() &&
+                     validVenta(request.resource.data) &&
+                     request.resource.data.vendedorUid == request.auth.uid;
+      allow update: if isActive() &&
+                    (onlyKeysChanged(['estado']) || isAdmin());
+      allow delete: if isAdmin();
+    }
+  }
+}
